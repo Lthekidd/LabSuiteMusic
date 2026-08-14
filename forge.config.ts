@@ -18,7 +18,15 @@ for (let i = 0; i < process.argv.length; i++) {
 
 const config: ForgeConfig = {
   packagerConfig: {
-    executableName: "youtube-music-desktop-app",
+    executableName: "labsuite-music",
+    appBundleId: "com.labsuite.music",
+    win32metadata: {
+      CompanyName: "LabSuite Team",
+      FileDescription: "LabSuite Music",
+      InternalName: "LabSuiteMusic",
+      OriginalFilename: "labsuite-music.exe",
+      ProductName: "LabSuite Music"
+    },
     icon: "./src/assets/icons/ytmd",
     extraResource: [
       "./src/assets/icons/tray.ico",
@@ -35,8 +43,8 @@ const config: ForgeConfig = {
     ],
     protocols: [
       {
-        name: "YouTube Music Desktop App",
-        schemes: ["ytmd"]
+        name: "LabSuite Music",
+        schemes: ["labsuite-music"]
       }
     ],
     appCategoryType: "public.app-category.music",
@@ -44,37 +52,27 @@ const config: ForgeConfig = {
   },
   rebuildConfig: {},
   makers: [
-    new MakerSquirrel({
-      iconUrl: `https://raw.githubusercontent.com/${process.env.YTMD_UPDATE_FEED_OWNER ?? "ytmdesktop"}/ytmdesktop/137c4e5c175c8c125cbcca9a5312611f80cd3bd9/src/assets/icons/ytmd.ico`
-    }),
+    new MakerSquirrel({}),
     new MakerZIP({}, ["darwin"]),
     new MakerRpm({
       options: {
         categories: ["AudioVideo", "Audio"],
-        mimeType: ["x-scheme-handler/ytmd"],
+        mimeType: ["x-scheme-handler/labsuite-music"],
         icon: "./src/assets/icons/ytmd.png"
       }
     }),
     new MakerDeb({
       options: {
         categories: ["AudioVideo", "Audio"],
-        mimeType: ["x-scheme-handler/ytmd"],
+        mimeType: ["x-scheme-handler/labsuite-music"],
         section: "sound",
         icon: "./src/assets/icons/ytmd.png"
       }
     })
   ],
-  publishers: [
-    {
-      name: "@electron-forge/publisher-github",
-      config: {
-        repository: {
-          owner: process.env.YTMD_UPDATE_FEED_OWNER ?? "ytmdesktop",
-          name: process.env.YTMD_UPDATE_FEED_REPOSITORY ?? "ytmdesktop"
-        }
-      }
-    }
-  ],
+  // Hardened builds are published only by LabSuite's separately controlled,
+  // signed release process. Never fall back to the upstream update channel.
+  publishers: [],
   plugins: [
     new VitePlugin({
       build: [

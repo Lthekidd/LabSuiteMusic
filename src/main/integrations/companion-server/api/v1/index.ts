@@ -323,6 +323,10 @@ const CompanionServerAPIv1: FastifyPluginCallback<CompanionServerAPIv1Options> =
         webPreferences: {
           sandbox: true,
           contextIsolation: true,
+          nodeIntegration: false,
+          webSecurity: true,
+          allowRunningInsecureContent: false,
+          devTools: process.env.NODE_ENV === "development",
           preload: path.join(__dirname, `../renderer/windows/authorize-companion/preload.js`),
           additionalArguments: [requestId, authData.appName, request.body.code]
         }

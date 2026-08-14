@@ -18,8 +18,9 @@ try {
   throw e;
 }
 
-// HEAD is used for production builds as they check out version tags in a detached HEAD state
-const devBuild = gitBranch !== "HEAD" && process.env.NODE_ENV === "development";
+// Reading the branch remains a build-integrity check. The hardened companion
+// deliberately has no runtime updater; releases are installed by LabSuite.
+void gitBranch;
 
 // https://vitejs.dev/config
 export default defineConfig({
@@ -28,10 +29,5 @@ export default defineConfig({
     rollupOptions: {
       external: ["bufferutil", "utf-8-validate"]
     }
-  },
-  define: {
-    YTMD_DISABLE_UPDATES: devBuild,
-    YTMD_UPDATE_FEED_OWNER: process.env.YTMD_UPDATE_FEED_OWNER ? `'${process.env.YTMD_UPDATE_FEED_OWNER}'` : "'ytmdesktop'",
-    YTMD_UPDATE_FEED_REPOSITORY: process.env.YTMD_UPDATE_FEED_REPOSITORY ? `'${process.env.YTMD_UPDATE_FEED_REPOSITORY}'` : "'ytmdesktop'"
   }
 });

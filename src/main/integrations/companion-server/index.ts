@@ -9,13 +9,12 @@ import { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import { AuthToken } from "~shared/integrations/companion-server/types";
 import { RemoteSocket } from "socket.io";
 import { DefaultEventsMap } from "socket.io/dist/typed-events";
-import cors from "@fastify/cors";
 import MemoryStore from "../../memory-store";
 import log from "electron-log";
 import { isDefinedAPIError } from "./api-shared/errors";
 
 export default class CompanionServer implements IIntegration {
-  private listenIp = "0.0.0.0";
+  private listenIp = "127.0.0.1";
   private listenPort = 9863;
   private fastifyServer: FastifyInstance;
   private store: Conf<StoreSchema>;
@@ -25,18 +24,23 @@ export default class CompanionServer implements IIntegration {
 
   private createServer() {
     this.fastifyServer = Fastify().withTypeProvider<TypeBoxTypeProvider>();
-    this.fastifyServer.register(cors, {
-      origin: this.store.get<"integrations.companionServerCORSWildcardEnabled", boolean>("integrations.companionServerCORSWildcardEnabled", false) ? "*" : false
+    this.fastifyServer.addHook("onRequest", (request, reply, done) => {
+      const host = String(request.headers.host || "").toLowerCase();
+      if (host !== "127.0.0.1:9863" && host !== "localhost:9863") {
+        reply.code(403).send({ error: "LOOPBACK_HOST_REQUIRED" });
+        return;
+      }
+      // LabSuite connects from its main Node process. Reject browser origins to
+      // prevent a signed-in web page from probing or driving the local API.
+      if (request.headers.origin) {
+        reply.code(403).send({ error: "BROWSER_ORIGIN_REJECTED" });
+        return;
+      }
+      done();
     });
     this.fastifyServer.register(FastifyIO, {
       transports: ["websocket"],
-      allowUpgrades: false,
-      // While this is websocket only we still apply cors just in case
-      cors: {
-        origin: this.store.get<"integrations.companionServerCORSWildcardEnabled", boolean>("integrations.companionServerCORSWildcardEnabled", false)
-          ? "*"
-          : false
-      }
+      allowUpgrades: false
     });
     this.fastifyServer.register(CompanionServerAPIv1, {
       prefix: "/api/v1",
@@ -63,7 +67,10 @@ export default class CompanionServer implements IIntegration {
     });
     this.fastifyServer.get("/metadata", (request, reply) => {
       reply.send({
-        apiVersions: ["v1"]
+        apiVersions: ["v1"],
+        product: "LabSuite Music",
+        securityProfile: "labsuite-hardened-v1",
+        transport: "loopback-only"
       });
     });
 

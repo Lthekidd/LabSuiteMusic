@@ -1,6 +1,5 @@
 import {
   app,
-  autoUpdater,
   BrowserView,
   BrowserWindow,
   clipboard,
@@ -40,18 +39,13 @@ import VolumeRatio from "./integrations/volume-ratio";
 // whether you're running in development or production).
 declare const ALL_WINDOWS_VITE_DEV_SERVER_URL: string;
 
-declare const YTMD_DISABLE_UPDATES: boolean;
-declare const YTMD_UPDATE_FEED_OWNER: string;
-declare const YTMD_UPDATE_FEED_REPOSITORY: string;
-
 const assetFolder = path.join(process.env.NODE_ENV === "development" ? path.join(app.getAppPath(), "src/assets") : process.resourcesPath);
 const isDarwin = process.platform === "darwin";
 
 let applicationExited = false;
 let applicationQuitting = false;
-let appUpdateAvailable = false;
-let appUpdateDownloaded = false;
-let appLaunchUpdateCheck = true;
+const appUpdateAvailable = false;
+const appUpdateDownloaded = false;
 
 let stateSaverInterval: NodeJS.Timeout | null = null;
 
@@ -84,7 +78,9 @@ log.hooks.push((message, transport) => {
 
 log.initialize({
   preload: true,
-  spyRendererConsole: true
+  // The Google/YouTube renderer may log account-specific data. Keep its
+  // console out of persistent application logs.
+  spyRendererConsole: false
 });
 // Handle logs and errors
 log.errorHandler.startCatching({
@@ -113,7 +109,7 @@ log.errorHandler.startCatching({
       `${error.stack}`;
 
     if (!app.isReady()) {
-      dialog.showErrorBox(`YouTube Music Desktop App Crashed`, `Application crashed before ready\n\n${dialogMessage}`);
+      dialog.showErrorBox(`LabSuite Music Crashed`, `Application crashed before ready\n\n${dialogMessage}`);
     } else {
       const options = ["Copy to Clipboard and Exit", "Exit"];
       if (!app.isPackaged) {
@@ -122,7 +118,7 @@ log.errorHandler.startCatching({
 
       result = dialog.showMessageBoxSync({
         title: "Error",
-        message: "YouTube Music Desktop App Crashed",
+        message: "LabSuite Music Crashed",
         detail: dialogMessage,
         type: "error",
         buttons: options
@@ -130,7 +126,7 @@ log.errorHandler.startCatching({
 
       // Copy to Clipboard
       if (result === 0 || result === 2) {
-        clipboard.writeText(`YouTube Music Desktop App Crashed\n\n${dialogMessage}`);
+        clipboard.writeText(`LabSuite Music Crashed\n\n${dialogMessage}`);
       }
     }
 
@@ -155,9 +151,10 @@ log.info("Application launched");
 
 // Enforce sandbox on all renderers
 app.enableSandbox();
+if (process.platform === "win32") app.setAppUserModelId("com.labsuite.music");
 
 // appMenu allows for some basic windows management, editMenu allow for copy and paste shortcuts on MacOS
-const template: MenuItemConstructorOptions[] = [{ role: "appMenu", label: "YouTube Music Desktop App" }, { role: "editMenu" }];
+const template: MenuItemConstructorOptions[] = [{ role: "appMenu", label: "LabSuite Music" }, { role: "editMenu" }];
 const builtMenu = isDarwin ? Menu.buildFromTemplate(template) : null; // null for performance https://www.electronjs.org/docs/latest/tutorial/performance#8-call-menusetapplicationmenunull-when-you-do-not-need-a-default-menu
 Menu.setApplicationMenu(builtMenu);
 
@@ -204,42 +201,34 @@ if (!gotTheLock) {
 
 // Protocol handler
 function handleProtocol(url: string) {
-  log.info("Handling protocol url", url);
-  const urlPaths = url.split("://")[1];
-  if (urlPaths) {
-    const paths = urlPaths.split("/");
-    if (paths.length > 0) {
-      switch (paths[0]) {
-        case "play": {
-          if (paths.length >= 2) {
-            const videoId = paths[1];
-            const playlistId = paths[2];
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "labsuite-music:" || parsed.hostname !== "play") return;
 
-            if (ytmView) {
-              ytmView.webContents.send("remoteControl:execute", "navigate", {
-                watchEndpoint: {
-                  videoId: videoId,
-                  playlistId: playlistId
-                }
-              });
-            }
-          }
-        }
-      }
+    const [videoId, playlistId = ""] = parsed.pathname.split("/").filter(Boolean);
+    if (!/^[A-Za-z0-9_-]{11}$/.test(videoId)) return;
+    if (playlistId && !/^[A-Za-z0-9_-]{1,128}$/.test(playlistId)) return;
+
+    if (ytmView) {
+      ytmView.webContents.send("remoteControl:execute", "navigate", {
+        watchEndpoint: { videoId, playlistId }
+      });
     }
+  } catch {
+    log.warn("Rejected malformed LabSuite Music protocol request");
   }
 }
 
 // This will register the protocol in development, this is intentional and should stay this way for development purposes
-if (!app.isDefaultProtocolClient("ytmd")) {
+if (!app.isDefaultProtocolClient("labsuite-music")) {
   if (process.defaultApp) {
     if (process.argv.length >= 2) {
-      log.info("Application set as default protcol client for 'ytmd'");
-      app.setAsDefaultProtocolClient("ytmd", process.execPath, [path.resolve(process.argv[1])]);
+      log.info("Application set as default protocol client for 'labsuite-music'");
+      app.setAsDefaultProtocolClient("labsuite-music", process.execPath, [path.resolve(process.argv[1])]);
     }
   } else {
-    log.info("Application set as default protcol client for 'ytmd'");
-    app.setAsDefaultProtocolClient("ytmd", process.execPath);
+    log.info("Application set as default protocol client for 'labsuite-music'");
+    app.setAsDefaultProtocolClient("labsuite-music", process.execPath);
   }
 }
 
@@ -260,58 +249,10 @@ memoryStore.onStateChanged((newState, oldState) => {
 });
 log.info("Created memory store");
 
-function shouldDisableUpdates() {
-  // macOS can't have auto updates without a code signature
-  // linux is not supported on the update server https://github.com/ytmdesktop/ytmdesktop/issues/1247 (hanging issue resolved)
-  if (process.platform !== "win32") return true;
-}
-
-// Configure the autoupdater
-// macOS cannot use the autoUpdater without a code signature at this time
-if (app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES) {
-  const updateServer = "https://update.electronjs.org";
-  const updateFeed = `${updateServer}/${YTMD_UPDATE_FEED_OWNER}/${YTMD_UPDATE_FEED_REPOSITORY}/${process.platform}-${process.arch}/${app.getVersion()}`;
-
-  autoUpdater.setFeedURL({
-    url: updateFeed
-  });
-  autoUpdater.on("checking-for-update", () => {
-    if (appLaunchUpdateCheck) memoryStore.set("ytmViewLoadingStatus", "Checking for updates...");
-    if (settingsWindow) settingsWindow.webContents.send("app:checkingForUpdates");
-  });
-  autoUpdater.on("update-available", () => {
-    log.info("Application update available");
-    memoryStore.set("appUpdateAvailable", true);
-    appUpdateAvailable = true;
-    if (appLaunchUpdateCheck) memoryStore.set("ytmViewLoadingStatus", "Downloading update...");
-    if (settingsWindow) settingsWindow.webContents.send("app:updateAvailable");
-  });
-  autoUpdater.on("update-not-available", () => {
-    if (appLaunchUpdateCheck) appLaunchUpdateCheck = false;
-    if (settingsWindow) settingsWindow.webContents.send("app:updateNotAvailable");
-  });
-  autoUpdater.on("update-downloaded", () => {
-    log.info("Application update downloaded");
-    appUpdateDownloaded = true;
-    memoryStore.set("appUpdateDownloaded", true);
-    if (appLaunchUpdateCheck) autoUpdater.quitAndInstall();
-    if (settingsWindow) settingsWindow.webContents.send("app:updateDownloaded");
-  });
-  autoUpdater.on("error", () => {
-    if (appLaunchUpdateCheck) appLaunchUpdateCheck = false;
-    if (settingsWindow) settingsWindow.webContents.send("app:updateNotAvailable");
-  });
-  log.info("Setup application updater");
-
-  setInterval(
-    () => {
-      autoUpdater.checkForUpdates();
-    },
-    1000 * 60 * 15
-  );
-} else {
-  memoryStore.set("autoUpdaterDisabled", true);
-}
+// LabSuite Music has no runtime update channel. A reviewed build is replaced
+// only by LabSuite's installer, preventing upstream or environment-controlled
+// repositories from delivering code into the signed-in Google session.
+memoryStore.set("autoUpdaterDisabled", true);
 
 function getIconPath(icon: string) {
   return path.join(assetFolder, `${process.env.NODE_ENV === "development" ? "icons/" : ""}${icon}`);
@@ -364,9 +305,10 @@ const store = new Conf<StoreSchema>({
       ratioVolume: false
     },
     integrations: {
-      companionServerEnabled: false,
+      // Safe to enable by default in the hardened fork: it binds only to
+      // loopback, rejects browser origins, and requires an approved token.
+      companionServerEnabled: true,
       companionServerAuthTokens: null,
-      companionServerCORSWildcardEnabled: false,
       discordPresenceEnabled: false,
       lastFMEnabled: false
     },
@@ -509,20 +451,6 @@ store.onDidAnyChange(async (newState, oldState) => {
         memoryStore.set("companionServerAuthWindowEnabled", null);
         companionAuthWindowEnableTimeout = null;
       }, 300 * 1000);
-    }
-  }
-
-  if (newState.integrations.companionServerCORSWildcardEnabled && !oldState.integrations.companionServerCORSWildcardEnabled) {
-    // Check if the companion server has been enabled and needs a restart from CORS wildcard change
-    if (newState.integrations.companionServerEnabled && oldState.integrations.companionServerEnabled) {
-      await companionServer.disable();
-      await companionServer.enable();
-    }
-  } else if (!newState.integrations.companionServerCORSWildcardEnabled && oldState.integrations.companionServerCORSWildcardEnabled) {
-    // Check if the companion server has been disabled and needs a restart from CORS wildcard change
-    if (newState.integrations.companionServerEnabled && oldState.integrations.companionServerEnabled) {
-      await companionServer.disable();
-      await companionServer.enable();
     }
   }
 
@@ -905,12 +833,17 @@ function sendSettingsWindowStateIpc() {
 
 // Handles any navigation or window opening from ytmView
 function openExternalFromYtmView(urlString: string) {
-  const url = new URL(urlString);
-  const domainSplit = url.hostname.split(".");
-  domainSplit.reverse();
-  const domain = `${domainSplit[1]}.${domainSplit[0]}`;
-  if (domain === "google.com" || domain === "youtube.com") {
-    shell.openExternal(urlString);
+  try {
+    const url = new URL(urlString);
+    if (url.protocol !== "https:") return;
+    const domainSplit = url.hostname.split(".");
+    domainSplit.reverse();
+    const domain = `${domainSplit[1]}.${domainSplit[0]}`;
+    if (domain === "google.com" || domain === "youtube.com") {
+      shell.openExternal(url.toString());
+    }
+  } catch {
+    log.warn("Rejected malformed external navigation request");
   }
 }
 
@@ -949,8 +882,11 @@ const createOrShowSettingsWindow = (): void => {
     webPreferences: {
       sandbox: true,
       contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
       preload: path.join(__dirname, `../renderer/windows/settings/preload.js`),
-      devTools: store.get("developer.enableDevTools")
+      devTools: process.env.NODE_ENV === "development"
     }
   });
 
@@ -1005,14 +941,15 @@ function urlIsGoogleAccountsDomain(url: URL): boolean {
 }
 function isPreventedNavOrRedirect(url: URL): boolean {
   return (
-    url.hostname !== "consent.youtube.com" &&
-    url.hostname !== "accounts.youtube.com" &&
-    url.hostname !== "music.youtube.com" &&
-    !(
-      (url.hostname === "www.youtube.com" || url.hostname === "youtube.com") &&
-      (url.pathname === "/signin" || url.pathname === "/premium" || url.pathname === "/musicpremium" || url.pathname === "/signin_prompt")
-    ) &&
-    !urlIsGoogleAccountsDomain(url)
+    url.protocol !== "https:" ||
+    (url.hostname !== "consent.youtube.com" &&
+      url.hostname !== "accounts.youtube.com" &&
+      url.hostname !== "music.youtube.com" &&
+      !(
+        (url.hostname === "www.youtube.com" || url.hostname === "youtube.com") &&
+        (url.pathname === "/signin" || url.pathname === "/premium" || url.pathname === "/musicpremium" || url.pathname === "/signin_prompt")
+      ) &&
+      !urlIsGoogleAccountsDomain(url))
   );
 }
 
@@ -1025,6 +962,10 @@ const createYTMView = (): void => {
     webPreferences: {
       sandbox: true,
       contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      devTools: process.env.NODE_ENV === "development",
       partition: app.isPackaged ? "persist:ytmview" : "persist:ytmview-dev",
       preload: path.join(__dirname, `../renderer/windows/ytmview/preload.js`),
       autoplayPolicy: store.get("playback.continueWhereYouLeftOffPaused") ? "document-user-activation-required" : "no-user-gesture-required"
@@ -1083,14 +1024,14 @@ const createYTMView = (): void => {
   });
   ytmView.webContents.on("page-title-updated", (_event, title) => {
     if (mainWindow) {
-      mainWindow.setTitle(`${title} | YouTube Music Desktop App`);
+      mainWindow.setTitle(`${title} | LabSuite Music`);
     }
   });
   ytmView.webContents.on("context-menu", (_event, params) => {
     if (store.get("developer.enableDevTools")) {
       Menu.buildFromTemplate([
         {
-          label: "YouTube Music Desktop",
+          label: "LabSuite Music",
           type: "normal",
           enabled: false
         },
@@ -1221,8 +1162,11 @@ const createMainWindow = (): void => {
     webPreferences: {
       sandbox: true,
       contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
       preload: path.join(__dirname, `../renderer/windows/main/preload.js`),
-      devTools: store.get("developer.enableDevTools")
+      devTools: process.env.NODE_ENV === "development"
     }
   });
   const windowMaximized = store.get("state").windowMaximized;
@@ -1682,40 +1626,35 @@ app.on("ready", async () => {
 
   // Handle memory store ipc
   ipcMain.on("memoryStore:set", (event, key: string, value?: unknown) => {
-    if (settingsWindow && event.sender !== settingsWindow.webContents && event.sender !== mainWindow.webContents) return;
+    const trustedSender = event.sender === settingsWindow?.webContents || event.sender === mainWindow?.webContents;
+    if (!trustedSender) return;
 
     memoryStore.set(key, value);
   });
 
   ipcMain.handle("memoryStore:get", (event, key: string) => {
-    if (settingsWindow && event.sender !== settingsWindow.webContents) return;
+    const trustedSender = event.sender === settingsWindow?.webContents || event.sender === mainWindow?.webContents;
+    if (!trustedSender) return;
 
     return memoryStore.get(key);
   });
 
   // Handle settings store ipc
   ipcMain.on("settings:set", (event, key: string, value?: unknown) => {
-    if (settingsWindow && event.sender !== settingsWindow.webContents) return;
+    if (event.sender !== settingsWindow?.webContents) return;
 
     store.set(key, value);
   });
 
   ipcMain.handle("settings:get", (event, key: string) => {
-    if (
-      mainWindow &&
-      event.sender !== mainWindow.webContents &&
-      settingsWindow &&
-      event.sender !== settingsWindow.webContents &&
-      ytmView &&
-      event.sender !== ytmView.webContents
-    )
-      return;
+    const trustedSender = event.sender === mainWindow?.webContents || event.sender === settingsWindow?.webContents || event.sender === ytmView?.webContents;
+    if (!trustedSender) return;
 
     return store.get(key);
   });
 
   ipcMain.handle("settings:reset", (event, key: keyof StoreSchema) => {
-    if (event.sender !== settingsWindow.webContents) return;
+    if (event.sender !== settingsWindow?.webContents) return;
 
     store.reset(key);
   });
@@ -1723,7 +1662,7 @@ app.on("ready", async () => {
   // Handle safeStorage ipc
   ipcMain.handle("safeStorage:decryptString", (event, value: string) => {
     if (!memoryStore.get("safeStorageAvailable")) throw new Error("safeStorage is unavailable");
-    if (event.sender !== settingsWindow.webContents) return;
+    if (event.sender !== settingsWindow?.webContents) return;
 
     if (value) {
       return safeStorage.decryptString(Buffer.from(value, "hex"));
@@ -1734,51 +1673,44 @@ app.on("ready", async () => {
 
   ipcMain.handle("safeStorage:encryptString", (event, value: string) => {
     if (!memoryStore.get("safeStorageAvailable")) throw new Error("safeStorage is unavailable");
-    if (event.sender !== settingsWindow.webContents) return;
+    if (event.sender !== settingsWindow?.webContents) return;
 
     return safeStorage.encryptString(value).toString("hex");
   });
 
   // Handle app ipc
   ipcMain.handle("app:getVersion", event => {
-    if (event.sender !== settingsWindow.webContents) return;
+    if (event.sender !== settingsWindow?.webContents) return;
 
     return app.getVersion();
   });
 
   ipcMain.on("app:checkForUpdates", event => {
-    if (event.sender !== settingsWindow.webContents) return;
-
-    // autoUpdater downloads automatically and calling checkForUpdates causes duplicate install
-    if (!appUpdateAvailable || !appUpdateDownloaded) {
-      autoUpdater.checkForUpdates();
-    }
+    if (event.sender !== settingsWindow?.webContents) return;
+    settingsWindow?.webContents.send("app:updateNotAvailable");
   });
 
   ipcMain.handle("app:isUpdateAvailable", event => {
-    if (event.sender !== settingsWindow.webContents) return;
+    if (event.sender !== settingsWindow?.webContents) return;
 
     return appUpdateAvailable;
   });
 
   ipcMain.handle("app:isUpdateDownloaded", event => {
-    if (event.sender !== settingsWindow.webContents) return;
+    if (event.sender !== settingsWindow?.webContents) return;
 
     return appUpdateDownloaded;
   });
 
   ipcMain.on("app:restartApplicationForUpdate", event => {
     if (mainWindow && event.sender !== mainWindow.webContents && settingsWindow && event.sender !== settingsWindow.webContents) return;
-
-    // Electron explicitly will not call before-quit until after all the windows have closed, requiring us to have set that the application is quitting before hand
-    applicationQuitting = true;
-    autoUpdater.quitAndInstall();
   });
 
   log.info("Setup IPC handlers");
 
   // Create the permission handlers
-  session.fromPartition(app.isPackaged ? "persist:ytmview" : "persist:ytmview-dev").setPermissionCheckHandler((webContents, permission) => {
+  const ytmSession = session.fromPartition(app.isPackaged ? "persist:ytmview" : "persist:ytmview-dev");
+  ytmSession.setPermissionCheckHandler((webContents, permission) => {
     if (webContents == ytmView.webContents) {
       if (permission === "fullscreen") {
         return true;
@@ -1787,7 +1719,7 @@ app.on("ready", async () => {
 
     return false;
   });
-  session.fromPartition(app.isPackaged ? "persist:ytmview" : "persist:ytmview-dev").setPermissionRequestHandler((webContents, permission, callback) => {
+  ytmSession.setPermissionRequestHandler((webContents, permission, callback) => {
     if (webContents == ytmView.webContents) {
       if (permission === "fullscreen") {
         return callback(true);
@@ -1796,6 +1728,7 @@ app.on("ready", async () => {
 
     return callback(false);
   });
+  ytmSession.on("will-download", event => event.preventDefault());
 
   log.info("Setup permission handlers");
 
@@ -1806,7 +1739,7 @@ app.on("ready", async () => {
   tray = new Tray(getTrayIconPath());
   trayContextMenu = Menu.buildFromTemplate([
     {
-      label: "YouTube Music Desktop",
+      label: "LabSuite Music",
       type: "normal",
       enabled: false
     },
@@ -1858,7 +1791,7 @@ app.on("ready", async () => {
       }
     }
   ]);
-  tray.setToolTip("YouTube Music Desktop");
+  tray.setToolTip("LabSuite Music");
   tray.setContextMenu(trayContextMenu);
   tray.on("click", () => {
     if (mainWindow) {
@@ -1876,19 +1809,7 @@ app.on("ready", async () => {
   log.info("Created main window");
 
   memoryStore.set("ytmViewLoading", true);
-  memoryStore.set("ytmViewLoadingStatus", "Checking for updates...");
-
-  // Check for application updates
-  if (app.isPackaged && !shouldDisableUpdates() && !YTMD_DISABLE_UPDATES) {
-    autoUpdater.checkForUpdates();
-    await new Promise<void>(resolve => {
-      setInterval(() => {
-        if (!appLaunchUpdateCheck) resolve();
-      }, 250);
-    });
-  } else {
-    appLaunchUpdateCheck = false;
-  }
+  memoryStore.set("ytmViewLoadingStatus", "Preparing secure session...");
 
   // Integrations preflight initialization
   ytmViewIntegrationScripts["ratioVolume"] = ratioVolume.getYTMScripts().reduce<{ [name: string]: string }>((map, obj) => {

@@ -1,4 +1,19 @@
-# YouTube Music Desktop App
+# LabSuite Music
+
+> **LabSuite hardened fork.** This repository is pinned to YTMDesktop v2.0.11
+> and is built separately under GPL-3.0-only. Do not use the upstream Winget or
+> binary download instructions below for LabSuite integration: those packages
+> do not contain the loopback-only API, disabled updater, or hardened profile
+> described in [LABSUITE_FORK.md](LABSUITE_FORK.md).
+
+Run `corepack yarn verify:security` before every build.
+
+## Upstream project documentation
+
+The remaining documentation and screenshots come from the original YTMDesktop
+project and are retained for attribution and development reference.
+
+## YouTube Music Desktop App
 ### Now with a Fresh new Codebase 😉
 
 ![YouTube Music Desktop App](.github/images/readme_main_app.png)

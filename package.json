@@ -1,8 +1,8 @@
 {
-  "name": "youtube-music-desktop-app",
-  "productName": "YouTube Music Desktop App",
-  "version": "2.0.11",
-  "description": "YouTube Music Desktop App",
+  "name": "labsuite-music",
+  "productName": "LabSuite Music",
+  "version": "2.0.11-labsuite.1",
+  "description": "Hardened YouTube Music companion for LabSuite",
   "main": ".vite/main/index.js",
   "private": true,
   "scripts": {
@@ -12,6 +12,7 @@
     "publish:dry": "electron-forge publish --dry-run",
     "publish:fromdry": "electron-forge publish --from-dry-run",
     "publish": "electron-forge publish",
+    "verify:security": "node scripts/verify-security.mjs",
     "lint": "eslint --ext .ts,.tsx,.vue .",
     "lint:fix": "eslint --ext .ts,.tsx,.vue .",
     "prettier": "prettier --check *.{ts,tsx,vue}",
@@ -19,10 +20,7 @@
     "postinstall": "husky install"
   },
   "keywords": [],
-  "author": {
-    "name": "NovusTheory",
-    "email": "novustheory@gmail.com"
-  },
+  "author": "LabSuite Team and YTMDesktop contributors",
   "license": "GPL-3.0-only",
   "devDependencies": {
     "@electron-forge/cli": "~7.11.1",
@@ -33,14 +31,13 @@
     "@electron-forge/plugin-auto-unpack-natives": "~7.11.1",
     "@electron-forge/plugin-fuses": "~7.11.1",
     "@electron-forge/plugin-vite": "~7.11.1",
-    "@electron-forge/publisher-github": "~7.11.1",
     "@electron/fuses": "^2.0.0",
     "@types/electron-squirrel-startup": "^1.0.2",
     "@types/node": "^22.19.11",
     "@typescript-eslint/eslint-plugin": "^8.55.0",
     "@typescript-eslint/parser": "^8.55.0",
     "@vitejs/plugin-vue": "^5.2.4",
-    "electron": "^40.4.0",
+    "electron": "43.4.0",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^9.1.2",
     "eslint-import-resolver-typescript": "^3.10.1",
@@ -54,7 +51,6 @@
     "vite": "^5.4.21"
   },
   "dependencies": {
-    "@fastify/cors": "^11.2.0",
     "@fastify/error": "^4.2.0",
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/type-provider-typebox": "^5.2.0",

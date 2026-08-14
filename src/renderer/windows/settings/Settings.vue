@@ -58,7 +58,6 @@ const companionServerEnabled = ref<boolean>(integrations.companionServerEnabled)
 const companionServerAuthTokens = ref<AuthToken[]>(
   safeStorageAvailable.value ? (JSON.parse(await safeStorage.decryptString(integrations.companionServerAuthTokens)) ?? []) : []
 );
-const companionServerCORSWildcardEnabled = ref<boolean>(integrations.companionServerCORSWildcardEnabled);
 const discordPresenceEnabled = ref<boolean>(integrations.discordPresenceEnabled);
 const lastFMEnabled = ref<boolean>(integrations.lastFMEnabled);
 
@@ -96,7 +95,6 @@ store.onDidAnyChange(async newState => {
   companionServerAuthTokens.value = safeStorageAvailable.value
     ? (JSON.parse(await safeStorage.decryptString(newState.integrations.companionServerAuthTokens)) ?? [])
     : [];
-  companionServerCORSWildcardEnabled.value = newState.integrations.companionServerCORSWildcardEnabled;
   discordPresenceEnabled.value = newState.integrations.discordPresenceEnabled;
   lastFMEnabled.value = newState.integrations.lastFMEnabled;
   lastFMSessionKey.value = newState.lastfm.sessionKey;
@@ -166,7 +164,6 @@ async function settingsChanged() {
   store.set("playback.ratioVolume", ratioVolume.value);
 
   store.set("integrations.companionServerEnabled", companionServerEnabled.value);
-  store.set("integrations.companionServerCORSWildcardEnabled", companionServerCORSWildcardEnabled.value);
   store.set("integrations.discordPresenceEnabled", discordPresenceEnabled.value);
   store.set("integrations.lastFMEnabled", lastFMEnabled.value);
   store.set("lastfm.scrobblePercent", scrobblePercent.value);
@@ -351,15 +348,6 @@ window.ytmd.handleUpdateDownloaded(() => {
           />
           <YTMDSetting
             v-if="companionServerEnabled && safeStorageAvailable"
-            v-model="companionServerCORSWildcardEnabled"
-            type="checkbox"
-            indented
-            name="Allow browser communication"
-            description="This setting could be dangerous as it allows any website you visit to communicate with the companion server"
-            @change="settingsChanged"
-          />
-          <YTMDSetting
-            v-if="companionServerEnabled && safeStorageAvailable"
             v-model="companionServerAuthWindowEnabled"
             type="checkbox"
             indented
@@ -521,8 +509,8 @@ window.ytmd.handleUpdateDownloaded(() => {
 
         <div v-if="currentTab === 99" class="about-tab">
           <img class="icon" :src="logo" />
-          <h2 class="app-name">YouTube Music Desktop App</h2>
-          <p class="made-by">Made by YTMDesktop Team</p>
+          <h2 class="app-name">LabSuite Music</h2>
+          <p class="made-by">Hardened by LabSuite · Based on YTMDesktop</p>
           <template v-if="!autoUpdaterDisabled">
             <button
               v-if="!updateDownloaded"
@@ -545,7 +533,7 @@ window.ytmd.handleUpdateDownloaded(() => {
           </template>
           <template v-if="autoUpdaterDisabled">
             <button disabled class="update-check-button"><span class="material-symbols-outlined">update</span>Check for updates</button>
-            <p class="no-auto-updater">Auto updater disabled</p>
+            <p class="no-auto-updater">Updates are installed only by LabSuite</p>
           </template>
           <span class="version-info">
             <p class="version">Version: {{ ytmdVersion }}</p>

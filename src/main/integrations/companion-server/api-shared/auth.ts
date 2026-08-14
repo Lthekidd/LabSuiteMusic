@@ -102,7 +102,9 @@ export function isAuthValid(store: Conf<StoreSchema>, authToken: string): [boole
   let validSession = false;
   let id = null;
   for (const authSession of authTokens) {
-    if (authSession.token == authTokenHash) {
+    const expected = Buffer.from(String(authSession.token || ""), "hex");
+    const actual = Buffer.from(authTokenHash, "hex");
+    if (expected.length === actual.length && expected.length > 0 && crypto.timingSafeEqual(expected, actual)) {
       id = authSession.id;
       validSession = true;
       break;

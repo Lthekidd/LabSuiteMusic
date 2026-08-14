@@ -96,8 +96,8 @@ export default class DiscordPresence implements IIntegration {
         instance: false,
         buttons: [
           {
-            label: "Play on YTMDesktop",
-            url: `ytmd://play/${id}`
+            label: "Play on LabSuite Music",
+            url: `labsuite-music://play/${id}`
           }
         ]
       });
