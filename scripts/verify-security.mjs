@@ -10,6 +10,7 @@ const packageJson = JSON.parse(read("package.json"));
 const forge = read("forge.config.ts");
 const main = read("src/main/index.ts");
 const companion = read("src/main/integrations/companion-server/index.ts");
+const companionApi = read("src/main/integrations/companion-server/api/v1/index.ts");
 const auth = read("src/main/integrations/companion-server/api-shared/auth.ts");
 const settings = read("src/renderer/windows/settings/Settings.vue");
 
@@ -35,6 +36,10 @@ assert.match(companion, /LOOPBACK_HOST_REQUIRED/);
 assert.match(companion, /BROWSER_ORIGIN_REJECTED/);
 assert.doesNotMatch(companion, /@fastify\/cors|CORSWildcard|origin:\s*"\*"/);
 assert.match(auth, /crypto\.timingSafeEqual/);
+assert.ok(
+  companionApi.indexOf('fastify.addHook("onClose"') < companionApi.indexOf("fastify.ready().then"),
+  "Fastify cleanup hooks must be registered before the server starts listening"
+);
 
 assert.doesNotMatch(main, /update\.electronjs\.org|setFeedURL|checkForUpdates\(|quitAndInstall\(/);
 assert.doesNotMatch(main, /\bautoUpdater\b/);

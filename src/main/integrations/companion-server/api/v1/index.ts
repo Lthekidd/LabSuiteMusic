@@ -517,6 +517,32 @@ const CompanionServerAPIv1: FastifyPluginCallback<CompanionServerAPIv1Options> =
     }
   );
 
+  const stateStoreListener = (state: PlayerState) => {
+    fastify.io.of("/api/v1/realtime").emit("state-update", transformPlayerState(state));
+  };
+  const createPlaylistObservedListener = (event: Electron.IpcMainEvent, playlist: Playlist) => {
+    const ytmView = options.getYtmView();
+    if (event.sender !== ytmView.webContents) return;
+
+    fastify.io.of("/api/v1/realtime").emit("playlist-created", playlist);
+  };
+  const deletePlaylistObservedListener = (event: Electron.IpcMainEvent, playlistId: string) => {
+    const ytmView = options.getYtmView();
+    if (event.sender !== ytmView.webContents) return;
+
+    fastify.io.of("/api/v1/realtime").emit("playlist-deleted", playlistId);
+  };
+
+  // Fastify lifecycle hooks must be registered before the server becomes
+  // ready/listening. Register cleanup synchronously, then attach runtime
+  // listeners once socket.io has finished initializing.
+  fastify.addHook("onClose", () => {
+    fastify.io.close();
+    playerStateStore.removeEventListener(stateStoreListener);
+    ipcMain.off("ytmView:createPlaylistObserved", createPlaylistObservedListener);
+    ipcMain.off("ytmView:deletePlaylistObserved", deletePlaylistObservedListener);
+  });
+
   fastify.ready().then(() => {
     fastify.io.of("/api/v1/realtime").use((socket, next) => {
       const token = socket.handshake.auth.token;
@@ -535,34 +561,9 @@ const CompanionServerAPIv1: FastifyPluginCallback<CompanionServerAPIv1Options> =
       });
     });*/
 
-    const stateStoreListener = (state: PlayerState) => {
-      fastify.io.of("/api/v1/realtime").emit("state-update", transformPlayerState(state));
-    };
     playerStateStore.addEventListener(stateStoreListener);
-
-    const createPlaylistObservedListener = (event: Electron.IpcMainEvent, playlist: Playlist) => {
-      const ytmView = options.getYtmView();
-      if (event.sender !== ytmView.webContents) return;
-
-      fastify.io.of("/api/v1/realtime").emit("playlist-created", playlist);
-    };
     ipcMain.on("ytmView:createPlaylistObserved", createPlaylistObservedListener);
-
-    const deletePlaylistObservedListener = (event: Electron.IpcMainEvent, playlistId: string) => {
-      const ytmView = options.getYtmView();
-      if (event.sender !== ytmView.webContents) return;
-
-      fastify.io.of("/api/v1/realtime").emit("playlist-deleted", playlistId);
-    };
     ipcMain.on("ytmView:deletePlaylistObserved", deletePlaylistObservedListener);
-
-    fastify.addHook("onClose", () => {
-      // This should normally close on its own but we'll make sure it's closed out
-      fastify.io.close();
-      playerStateStore.removeEventListener(stateStoreListener);
-      ipcMain.off("ytmView:createPlaylistObserved", createPlaylistObservedListener);
-      ipcMain.off("ytmView:deletePlaylistObserved", deletePlaylistObservedListener);
-    });
   });
 };
 
