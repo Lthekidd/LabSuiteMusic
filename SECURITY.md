@@ -1,6 +1,6 @@
 # Security policy
 
-LabSuite Music intentionally has no automatic update channel. Build provenance
+YTmusic intentionally has no automatic update channel. Build provenance
 is part of the security boundary: use a pinned source revision, run
 `yarn verify:security`, and verify the packaged artifact hash before release.
 

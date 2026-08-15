@@ -509,8 +509,8 @@ window.ytmd.handleUpdateDownloaded(() => {
 
         <div v-if="currentTab === 99" class="about-tab">
           <img class="icon" :src="logo" />
-          <h2 class="app-name">LabSuite Music</h2>
-          <p class="made-by">Hardened by LabSuite · Based on YTMDesktop</p>
+          <h2 class="app-name">YTmusic</h2>
+          <p class="made-by">Community fork of YTMDesktop · Hardened for LabSuite</p>
           <template v-if="!autoUpdaterDisabled">
             <button
               v-if="!updateDownloaded"

@@ -23,7 +23,7 @@ onBeforeMount(async () => {
     <div class="container">
       <h1 class="title">Companion Authorization Request</h1>
       <p class="subtitle">
-        <b>{{ appName }}</b> would like to control LabSuite Music
+        <b>{{ appName }}</b> would like to control YTmusic
       </p>
       <p class="code-confirm">
         Please ensure the code below matches what <b>{{ appName }}</b> is showing

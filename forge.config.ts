@@ -21,11 +21,11 @@ const config: ForgeConfig = {
     executableName: "labsuite-music",
     appBundleId: "com.labsuite.music",
     win32metadata: {
-      CompanyName: "LabSuite Team",
-      FileDescription: "LabSuite Music",
+      CompanyName: "YTMDesktop contributors",
+      FileDescription: "YTmusic - hardened YTMDesktop fork",
       InternalName: "LabSuiteMusic",
       OriginalFilename: "labsuite-music.exe",
-      ProductName: "LabSuite Music"
+      ProductName: "YTmusic"
     },
     icon: "./src/assets/icons/ytmd",
     extraResource: [
@@ -43,7 +43,7 @@ const config: ForgeConfig = {
     ],
     protocols: [
       {
-        name: "LabSuite Music",
+        name: "YTmusic",
         schemes: ["labsuite-music"]
       }
     ],
