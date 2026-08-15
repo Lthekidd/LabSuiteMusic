@@ -1,6 +1,6 @@
-# LabSuite Music hardened fork
+# YTmusic hardened fork
 
-LabSuite Music is a GPL-3.0-only derivative of YTMDesktop, maintained as a
+YTmusic is a GPL-3.0-only derivative of YTMDesktop, maintained as a
 separate companion process for the MIT-licensed LabSuite application.
 
 ## Source baseline
@@ -19,7 +19,7 @@ fork are also distributed under GPL-3.0-only.
 - Browser-originated requests and unexpected Host headers are rejected.
 - Every state and control endpoint requires a user-approved, encrypted token.
 - The loopback companion starts by default; authorization still requires an
-  explicit, time-limited approval in the LabSuite Music settings window.
+  explicit, time-limited approval in the YTmusic authorization window.
 - The app has no runtime auto-updater and no upstream update-feed fallback.
 - Google/YouTube runs in a sandboxed, context-isolated persistent partition.
 - Node integration, downloads, insecure content, and all permissions except

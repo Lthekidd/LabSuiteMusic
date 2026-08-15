@@ -109,7 +109,7 @@ log.errorHandler.startCatching({
       `${error.stack}`;
 
     if (!app.isReady()) {
-      dialog.showErrorBox(`LabSuite Music Crashed`, `Application crashed before ready\n\n${dialogMessage}`);
+      dialog.showErrorBox(`YTmusic Crashed`, `Application crashed before ready\n\n${dialogMessage}`);
     } else {
       const options = ["Copy to Clipboard and Exit", "Exit"];
       if (!app.isPackaged) {
@@ -118,7 +118,7 @@ log.errorHandler.startCatching({
 
       result = dialog.showMessageBoxSync({
         title: "Error",
-        message: "LabSuite Music Crashed",
+        message: "YTmusic Crashed",
         detail: dialogMessage,
         type: "error",
         buttons: options
@@ -126,7 +126,7 @@ log.errorHandler.startCatching({
 
       // Copy to Clipboard
       if (result === 0 || result === 2) {
-        clipboard.writeText(`LabSuite Music Crashed\n\n${dialogMessage}`);
+        clipboard.writeText(`YTmusic Crashed\n\n${dialogMessage}`);
       }
     }
 
@@ -154,7 +154,7 @@ app.enableSandbox();
 if (process.platform === "win32") app.setAppUserModelId("com.labsuite.music");
 
 // appMenu allows for some basic windows management, editMenu allow for copy and paste shortcuts on MacOS
-const template: MenuItemConstructorOptions[] = [{ role: "appMenu", label: "LabSuite Music" }, { role: "editMenu" }];
+const template: MenuItemConstructorOptions[] = [{ role: "appMenu", label: "YTmusic" }, { role: "editMenu" }];
 const builtMenu = isDarwin ? Menu.buildFromTemplate(template) : null; // null for performance https://www.electronjs.org/docs/latest/tutorial/performance#8-call-menusetapplicationmenunull-when-you-do-not-need-a-default-menu
 Menu.setApplicationMenu(builtMenu);
 
@@ -195,7 +195,8 @@ if (!gotTheLock) {
       mainWindow.focus();
     }
 
-    handleProtocol(commandLine[commandLine.length - 1]);
+    const protocolUrl = commandLine.find(argument => argument.startsWith("labsuite-music://"));
+    if (protocolUrl) handleProtocol(protocolUrl);
   });
 }
 
@@ -203,7 +204,13 @@ if (!gotTheLock) {
 function handleProtocol(url: string) {
   try {
     const parsed = new URL(url);
-    if (parsed.protocol !== "labsuite-music:" || parsed.hostname !== "play") return;
+    if (parsed.protocol !== "labsuite-music:") return;
+
+    if (parsed.hostname === "pair") {
+      enableLabMediaPairing();
+      return;
+    }
+    if (parsed.hostname !== "play") return;
 
     const [videoId, playlistId = ""] = parsed.pathname.split("/").filter(Boolean);
     if (!/^[A-Za-z0-9_-]{11}$/.test(videoId)) return;
@@ -215,7 +222,7 @@ function handleProtocol(url: string) {
       });
     }
   } catch {
-    log.warn("Rejected malformed LabSuite Music protocol request");
+    log.warn("Rejected malformed YTmusic protocol request");
   }
 }
 
@@ -249,10 +256,23 @@ memoryStore.onStateChanged((newState, oldState) => {
 });
 log.info("Created memory store");
 
-// LabSuite Music has no runtime update channel. A reviewed build is replaced
+// YTmusic has no runtime update channel. A reviewed build is replaced
 // only by LabSuite's installer, preventing upstream or environment-controlled
 // repositories from delivering code into the signed-in Google session.
 memoryStore.set("autoUpdaterDisabled", true);
+
+function enableLabMediaPairing() {
+  if (!memoryStore.get("safeStorageAvailable")) return;
+  if (!store.get("integrations.companionServerEnabled")) {
+    store.set("integrations.companionServerEnabled", true);
+  }
+  memoryStore.set("companionServerAuthWindowEnabled", true);
+  if (companionAuthWindowEnableTimeout) clearTimeout(companionAuthWindowEnableTimeout);
+  companionAuthWindowEnableTimeout = setTimeout(() => {
+    memoryStore.set("companionServerAuthWindowEnabled", false);
+    companionAuthWindowEnableTimeout = null;
+  }, 300 * 1000);
+}
 
 function getIconPath(icon: string) {
   return path.join(assetFolder, `${process.env.NODE_ENV === "development" ? "icons/" : ""}${icon}`);
@@ -1024,14 +1044,14 @@ const createYTMView = (): void => {
   });
   ytmView.webContents.on("page-title-updated", (_event, title) => {
     if (mainWindow) {
-      mainWindow.setTitle(`${title} | LabSuite Music`);
+      mainWindow.setTitle(`${title} | YTmusic`);
     }
   });
   ytmView.webContents.on("context-menu", (_event, params) => {
     if (store.get("developer.enableDevTools")) {
       Menu.buildFromTemplate([
         {
-          label: "LabSuite Music",
+          label: "YTmusic",
           type: "normal",
           enabled: false
         },
@@ -1739,7 +1759,7 @@ app.on("ready", async () => {
   tray = new Tray(getTrayIconPath());
   trayContextMenu = Menu.buildFromTemplate([
     {
-      label: "LabSuite Music",
+      label: "YTmusic",
       type: "normal",
       enabled: false
     },
@@ -1791,7 +1811,7 @@ app.on("ready", async () => {
       }
     }
   ]);
-  tray.setToolTip("LabSuite Music");
+  tray.setToolTip("YTmusic");
   tray.setContextMenu(trayContextMenu);
   tray.on("click", () => {
     if (mainWindow) {
@@ -1873,6 +1893,9 @@ app.on("ready", async () => {
     lastFMScrobbler.enable();
     log.info("Integration enabled: Last.fm");
   }
+
+  const initialProtocolUrl = process.argv.find(argument => argument.startsWith("labsuite-music://"));
+  if (initialProtocolUrl) handleProtocol(initialProtocolUrl);
 
   nativeTheme.on("updated", setTrayIcon);
 });

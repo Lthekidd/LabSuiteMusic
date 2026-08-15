@@ -15,7 +15,7 @@ const auth = read("src/main/integrations/companion-server/api-shared/auth.ts");
 const settings = read("src/renderer/windows/settings/Settings.vue");
 
 assert.equal(packageJson.name, "labsuite-music");
-assert.equal(packageJson.productName, "LabSuite Music");
+assert.equal(packageJson.productName, "YTmusic");
 assert.equal(packageJson.license, "GPL-3.0-only");
 assert.equal(packageJson.devDependencies.electron, "43.4.0");
 
@@ -32,6 +32,7 @@ assert.match(forge, /OnlyLoadAppFromAsar\]: true/);
 assert.match(companion, /listenIp = "127\.0\.0\.1"/);
 assert.doesNotMatch(companion, /0\.0\.0\.0/);
 assert.match(companion, /securityProfile: "labsuite-hardened-v1"/);
+assert.match(companion, /product: "YTmusic"/);
 assert.match(companion, /LOOPBACK_HOST_REQUIRED/);
 assert.match(companion, /BROWSER_ORIGIN_REJECTED/);
 assert.doesNotMatch(companion, /@fastify\/cors|CORSWildcard|origin:\s*"\*"/);
@@ -43,6 +44,8 @@ assert.ok(
 
 assert.doesNotMatch(main, /update\.electronjs\.org|setFeedURL|checkForUpdates\(|quitAndInstall\(/);
 assert.doesNotMatch(main, /\bautoUpdater\b/);
+assert.match(main, /parsed\.hostname === "pair"/);
+assert.match(main, /memoryStore\.set\("companionServerAuthWindowEnabled", true\)/);
 assert.match(main, /app\.enableSandbox\(\)/);
 assert.match(main, /companionServerEnabled:\s*true/);
 assert.match(main, /spyRendererConsole:\s*false/);
@@ -54,4 +57,4 @@ assert.match(main, /permission === "fullscreen"/);
 assert.match(main, /parsed\.protocol !== "labsuite-music:"/);
 assert.doesNotMatch(settings, /Allow browser communication|companionServerCORSWildcardEnabled/);
 
-console.log("LabSuite Music hardened security profile verified.");
+console.log("YTmusic hardened security profile verified.");

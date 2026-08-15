@@ -1,6 +1,7 @@
-# LabSuite Music
+# YTmusic
 
-> **LabSuite hardened fork.** This repository is pinned to YTMDesktop v2.0.11
+> **Community fork of YTMDesktop for LabSuite.** This is not an official
+> YouTube or Google application. The repository is pinned to YTMDesktop v2.0.11
 > and is built separately under GPL-3.0-only. Do not use the upstream Winget or
 > binary download instructions below for LabSuite integration: those packages
 > do not contain the loopback-only API, disabled updater, or hardened profile

@@ -68,7 +68,7 @@ export default class CompanionServer implements IIntegration {
     this.fastifyServer.get("/metadata", (request, reply) => {
       reply.send({
         apiVersions: ["v1"],
-        product: "LabSuite Music",
+        product: "YTmusic",
         securityProfile: "labsuite-hardened-v1",
         transport: "loopback-only"
       });
