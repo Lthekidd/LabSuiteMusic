@@ -1,7 +1,7 @@
 {
   "name": "labsuite-music",
   "productName": "YTmusic",
-  "version": "2.0.11-labsuite.2",
+  "version": "2.0.11-labsuite.3",
   "description": "LabSuite-compatible hardened fork of YTMDesktop",
   "main": ".vite/main/index.js",
   "private": true,

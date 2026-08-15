@@ -20,6 +20,7 @@ import {
 import Conf from "conf";
 import log from "electron-log";
 import path from "path";
+import fsSync from "fs";
 import fs from "fs/promises";
 import electronSquirrelStartup from "electron-squirrel-startup";
 
@@ -41,6 +42,76 @@ declare const ALL_WINDOWS_VITE_DEV_SERVER_URL: string;
 
 const assetFolder = path.join(process.env.NODE_ENV === "development" ? path.join(app.getAppPath(), "src/assets") : process.resourcesPath);
 const isDarwin = process.platform === "darwin";
+
+function configurePersistentUserDataPath() {
+  // Preserve explicit test/deployment isolation. The runtime security test uses
+  // this switch and must never inspect or modify a real signed-in profile.
+  if (app.commandLine.hasSwitch("user-data-dir")) return;
+
+  const appDataRoot = app.getPath("appData");
+  const stablePath = path.join(appDataRoot, "YTmusic");
+  const profilePaths = Array.from(new Set([
+    stablePath,
+    app.getPath("userData"),
+    path.join(appDataRoot, "LabSuite Music"),
+    path.join(appDataRoot, "labsuite-music")
+  ]));
+  const googleSessionCookieNames = [
+    "LOGIN_INFO",
+    "SAPISID",
+    "__Secure-1PAPISID",
+    "__Secure-3PAPISID",
+    "__Secure-3PSID"
+  ].map(value => Buffer.from(value));
+
+  const profiles = profilePaths.map(profilePath => {
+    const partitionPath = path.join(profilePath, "Partitions", "ytmview");
+    const cookiePaths = [
+      path.join(partitionPath, "Network", "Cookies"),
+      path.join(partitionPath, "Network", "Cookies-wal")
+    ];
+    let exists = false;
+    let modifiedAt = 0;
+    let authCookieScore = 0;
+
+    try {
+      const profileStat = fsSync.statSync(profilePath);
+      exists = profileStat.isDirectory();
+      modifiedAt = profileStat.mtimeMs;
+    } catch {
+      return { profilePath, exists, hasPartition: false, authCookieScore, modifiedAt };
+    }
+
+    for (const cookiePath of cookiePaths) {
+      try {
+        const cookieData = fsSync.readFileSync(cookiePath);
+        modifiedAt = Math.max(modifiedAt, fsSync.statSync(cookiePath).mtimeMs);
+        authCookieScore += googleSessionCookieNames.filter(name => cookieData.includes(name)).length;
+      } catch {
+        // A missing or unreadable cookie database simply contributes no score.
+      }
+    }
+
+    return {
+      profilePath,
+      exists,
+      hasPartition: fsSync.existsSync(partitionPath),
+      authCookieScore,
+      modifiedAt
+    };
+  });
+
+  profiles.sort((left, right) =>
+    right.authCookieScore - left.authCookieScore
+    || Number(right.hasPartition) - Number(left.hasPartition)
+    || right.modifiedAt - left.modifiedAt
+    || Number(right.profilePath === stablePath) - Number(left.profilePath === stablePath)
+  );
+  const selectedPath = profiles.find(profile => profile.exists)?.profilePath || stablePath;
+  app.setPath("userData", selectedPath);
+}
+
+configurePersistentUserDataPath();
 
 let applicationExited = false;
 let applicationQuitting = false;

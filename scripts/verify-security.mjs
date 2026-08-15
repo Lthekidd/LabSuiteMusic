@@ -46,6 +46,10 @@ assert.doesNotMatch(main, /update\.electronjs\.org|setFeedURL|checkForUpdates\(|
 assert.doesNotMatch(main, /\bautoUpdater\b/);
 assert.match(main, /parsed\.hostname === "pair"/);
 assert.match(main, /memoryStore\.set\("companionServerAuthWindowEnabled", true\)/);
+assert.match(main, /function configurePersistentUserDataPath\(\)/);
+assert.match(main, /app\.commandLine\.hasSwitch\("user-data-dir"\)/);
+assert.match(main, /path\.join\(appDataRoot, "LabSuite Music"\)/);
+assert.match(main, /app\.setPath\("userData", selectedPath\)/);
 assert.match(main, /app\.enableSandbox\(\)/);
 assert.match(main, /companionServerEnabled:\s*true/);
 assert.match(main, /spyRendererConsole:\s*false/);

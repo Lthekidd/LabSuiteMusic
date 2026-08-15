@@ -22,6 +22,8 @@ fork are also distributed under GPL-3.0-only.
   explicit, time-limited approval in the YTmusic authorization window.
 - The app has no runtime auto-updater and no upstream update-feed fallback.
 - Google/YouTube runs in a sandboxed, context-isolated persistent partition.
+- Product-name changes reuse the most recently authenticated YTmusic profile,
+  so replacing the reviewed binary does not discard the Google session.
 - Node integration, downloads, insecure content, and all permissions except
   fullscreen are denied for the YouTube Music view.
 - Packaged cookies use Electron's encrypted-cookie fuse and the Windows user
